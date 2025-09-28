@@ -42,7 +42,17 @@ volatile zero_pad_t btn_01_zero_pad = ZERO_PAD_OFF;
 volatile group_t btn_02_group = GROUP_A;
 volatile selection_scope_t btn_03_selection_scope = SELECTION_SCOPE_ALL;
 volatile display_mode_t btn_04_display_mode = DISPLAY_MODE_RELAY_ACTIVATIONS;
-volatile int display_data[12];
+
+volatile int display_data_activations_all[12];
+volatile int display_data_activations_group_a[12];
+volatile int display_data_activations_group_b[12];
+volatile int display_data_activations_group_c[12];
+volatile int display_data_activations_group_d[12];
+volatile int display_data_total_time_all[12];
+volatile int display_data_total_time_group_a[12];
+volatile int display_data_total_time_group_b[12];
+volatile int display_data_total_time_group_c[12];
+volatile int display_data_total_time_group_d[12];
 
 #define PIN_BTN_01 (2)
 #define PIN_BTN_02 (3)
@@ -58,7 +68,20 @@ volatile int display_data[12];
 
 void setup() {
 
-  memset((void *)&display_data[0], 0, sizeof(display_data));
+  // 0xa means 7 segment display OFF (display zero when zero pad is active)
+  for(int i=0; i<12; i++) {
+    display_data_activations_all[i] = 0xa;
+    display_data_activations_group_a[i] = 0xa;
+    display_data_activations_group_b[i] = 0xa;
+    display_data_activations_group_c[i] = 0xa;
+    display_data_activations_group_d[i] = 0xa;
+
+    display_data_total_time_all[i] = 0xa;
+    display_data_total_time_group_a[i] = 0xa;
+    display_data_total_time_group_b[i] = 0xa;
+    display_data_total_time_group_c[i] = 0xa;
+    display_data_total_time_group_d[i] = 0xa;
+  }
 
   Serial.begin(9600);
 
@@ -122,10 +145,20 @@ void loop() {
   Serial.println(log_msg);
 
   // todo
-  display_data[0] += 1;
-  if (display_data[0] > 9) {
-    display_data[0] = 0;
+  display_data_activations_all[0] += 1;
+  if (display_data_activations_all[0] > 9) {
+    display_data_activations_all[0] = 0;
   }
+
+    display_data_activations_group_b[2] += 1;
+  if (display_data_activations_group_b[2] > 9) {
+    display_data_activations_group_b[2] = 0;
+  }
+
+
+
+
+  
 
   delay(100);
 }
@@ -134,9 +167,180 @@ void loop() {
 static int prev_btn_01 = 1;
 static int prev_btn_02 = 1;
 
-static int32_t btn_01_ref_ts = 0;
-static int32_t btn_02_ref_ts = 0;
-static int32_t display_ref_ts = 0;
+static uint32_t btn_01_ref_ts = 0;
+static uint32_t btn_02_ref_ts = 0;
+static uint32_t display_ref_ts = 0;
+
+void loop1_update_display(volatile int display_data[12])
+{
+   ////////////////////////////////////////////////////////////
+    ///////// ZERO PADDING STATE (0xa indication) //////////////
+    ////////////////////////////////////////////////////////////
+    // Zero pad means modifying positions that only relay
+    // structure, not any real information. Display turned off
+    // or zero.
+
+    if (display_data[3] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_01.writeDigitNum(0, 0, false);
+      } else {
+        led_display_01.writeDigitRaw(0, 0);
+      }
+    }
+
+    if (display_data[2] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_01.writeDigitNum(1, 0, false);
+      } else {
+        led_display_01.writeDigitRaw(1, 0);
+      }
+    }
+
+    if (display_data[3] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_01.writeDigitNum(3, 0, false);
+      } else {
+        led_display_01.writeDigitRaw(3, 0);
+      }
+    }
+
+    if (display_data[4] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_01.writeDigitNum(4, 0, false);
+      } else {
+        led_display_01.writeDigitRaw(4, 0);
+      }
+    }
+    led_display_01.writeDisplay();
+
+
+    if (display_data[7] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_02.writeDigitNum(0, 0, false);
+      } else {
+        led_display_02.writeDigitRaw(0, 0);
+      }
+    }
+
+    if (display_data[6] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_02.writeDigitNum(1, 0, false);
+      } else {
+        led_display_02.writeDigitRaw(1, 0);
+      }
+    }
+
+    if (display_data[5] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_02.writeDigitNum(3, 0, false);
+      } else {
+        led_display_02.writeDigitRaw(3, 0);
+      }
+    }
+
+    if (display_data[4] == 0xa) {
+        if (btn_01_zero_pad == ZERO_PAD_ON) {
+          led_display_02.writeDigitNum(4, 0, false);
+        } else {
+        led_display_02.writeDigitRaw(4, 0);
+      }
+    }
+    
+    led_display_02.writeDisplay();
+
+
+    if (display_data[11] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_03.writeDigitNum(0, 0, false);
+      } else {
+        led_display_03.writeDigitRaw(0, 0);
+      }
+    }
+
+    if (display_data[10] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_03.writeDigitNum(1, 0, false);
+      } else {
+        led_display_03.writeDigitRaw(1, 0);
+      }
+    }
+
+    if (display_data[9] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_03.writeDigitNum(3, 0, false);
+      } else {
+        led_display_03.writeDigitRaw(3, 0);
+      }
+    }
+
+    if (display_data[8] == 0xa) {
+      if (btn_01_zero_pad == ZERO_PAD_ON) {
+        led_display_03.writeDigitNum(4, 0, false);
+      } else {
+        led_display_03.writeDigitRaw(4, 0);
+      }
+    }
+    led_display_03.writeDisplay();
+
+
+    //////////////////////////////////////////////////////////////
+    /////////////////// VALUE 0-9 STATE //////////////////////////
+    //////////////////////////////////////////////////////////////
+  
+    if (display_data[3] != 0xa) {
+      led_display_01.writeDigitNum(0, display_data[3], false);
+    }
+
+    if (display_data[2] != 0xa) {
+      led_display_01.writeDigitNum(1, display_data[2], false);
+    }
+
+    if (display_data[1] != 0xa) {
+      led_display_01.writeDigitNum(3, display_data[1], false);
+    }
+
+    if (display_data[0] != 0xa) {
+      led_display_01.writeDigitNum(4, display_data[0], false);
+    }
+    led_display_01.writeDisplay();
+
+
+    if (display_data[7] != 0xa) {
+      led_display_02.writeDigitNum(0, display_data[7], false);
+    }
+
+    if (display_data[6] != 0xa) {
+      led_display_02.writeDigitNum(1, display_data[6], false);
+    }
+
+    if (display_data[5] != 0xa) {
+      led_display_02.writeDigitNum(3, display_data[5], false);
+    }
+
+    if (display_data[4] != 0xa) {
+    led_display_02.writeDigitNum(4, display_data[4], false);
+    }
+    
+    led_display_02.writeDisplay();
+
+
+    if (display_data[11] != 0xa) {
+      led_display_03.writeDigitNum(0, display_data[11], false);
+    }
+
+    if (display_data[10] != 0xa) {
+      led_display_03.writeDigitNum(1, display_data[10], false);
+    }
+
+    if (display_data[9] != 0xa) {
+      led_display_03.writeDigitNum(3, display_data[9], false);
+    }
+
+    if (display_data[8] != 0xa) {
+      led_display_03.writeDigitNum(4, display_data[8], false);
+    }
+    led_display_03.writeDisplay();
+}
 
 void loop1() {
   iteration++;
@@ -146,8 +350,8 @@ void loop1() {
   int btn_03 = digitalRead(PIN_BTN_03);
   int btn_04 = digitalRead(PIN_BTN_04);
 
-  int32_t btn_01_elapsed = (int32_t)millis() - btn_01_ref_ts;
-  if (btn_01 != prev_btn_01 && btn_01 == LOW && btn_01_elapsed > 150) {
+  uint32_t btn_01_elapsed = (uint32_t)millis() - btn_01_ref_ts;
+  if (btn_01 != prev_btn_01 && btn_01 == LOW && btn_01_elapsed > 175) {
     if (btn_01_zero_pad == ZERO_PAD_OFF) {
       btn_01_zero_pad = ZERO_PAD_ON;
     }
@@ -156,11 +360,11 @@ void loop1() {
       btn_01_zero_pad = ZERO_PAD_OFF;
     }
 
-    btn_01_ref_ts = (int32_t)millis();
+    btn_01_ref_ts = (uint32_t)millis();
   }
 
-  int32_t btn_02_elapsed = (int32_t)millis() - btn_02_ref_ts;
-  if (btn_02 != prev_btn_02 && btn_02 == LOW && btn_02_elapsed > 150) {
+  uint32_t btn_02_elapsed = (uint32_t)millis() - btn_02_ref_ts;
+  if (btn_02 != prev_btn_02 && btn_02 == LOW && btn_02_elapsed > 175) {
 
     if (btn_03_selection_scope == SELECTION_SCOPE_GROUP) {
       if (btn_02_group == GROUP_A) {
@@ -180,7 +384,7 @@ void loop1() {
       }
     }
 
-    btn_02_ref_ts = (int32_t)millis();
+    btn_02_ref_ts = (uint32_t)millis();
   }
 
   if (btn_03 == 0) {
@@ -228,27 +432,34 @@ void loop1() {
     digitalWrite(PIN_LED_06, LOW);
   }
 
-  int32_t display_elapsed = (int32_t)millis() - display_ref_ts;
+  uint32_t display_elapsed = (uint32_t)millis() - display_ref_ts;
   if (display_elapsed > 50) {
-    led_display_01.writeDigitNum(0, display_data[3], false);
-    led_display_01.writeDigitNum(1, display_data[2], false);
-    led_display_01.writeDigitNum(3, display_data[1], false);
-    led_display_01.writeDigitNum(4, display_data[0], false);
-    led_display_01.writeDisplay();
-
-    led_display_02.writeDigitNum(0, display_data[7], false);
-    led_display_02.writeDigitNum(1, display_data[6], false);
-    led_display_02.writeDigitNum(3, display_data[5], false);
-    led_display_02.writeDigitNum(4, display_data[4], false);
-    led_display_02.writeDisplay();
-
-    led_display_03.writeDigitNum(0, display_data[11], false);
-    led_display_03.writeDigitNum(1, display_data[10], false);
-    led_display_03.writeDigitNum(3, display_data[9], false);
-    led_display_03.writeDigitNum(4, display_data[8], false);
-    led_display_03.writeDisplay();
-
-    display_ref_ts = (int32_t)millis();
+    if (btn_04_display_mode == DISPLAY_MODE_RELAY_ACTIVATIONS) {
+      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
+        loop1_update_display(display_data_activations_all);
+      } else if (btn_02_group == GROUP_A) {
+        loop1_update_display(display_data_activations_group_a);
+      }  else if (btn_02_group == GROUP_B) {
+        loop1_update_display(display_data_activations_group_b);
+      }  else if (btn_02_group == GROUP_C) {
+        loop1_update_display(display_data_activations_group_c);
+      } else if (btn_02_group == GROUP_D) {
+        loop1_update_display(display_data_activations_group_d);
+      }
+    } else if (btn_04_display_mode == DISPLAY_MODE_RELAY_TOTAL_ACTIVATION_TIME) {
+      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
+        loop1_update_display(display_data_total_time_all);
+      } else if (btn_02_group == GROUP_A) {
+        loop1_update_display(display_data_total_time_group_a);
+      }  else if (btn_02_group == GROUP_B) {
+        loop1_update_display(display_data_total_time_group_b);
+      }  else if (btn_02_group == GROUP_C) {
+        loop1_update_display(display_data_total_time_group_c);
+      } else if (btn_02_group == GROUP_D) {
+        loop1_update_display(display_data_total_time_group_d);
+      }      
+    }
+    display_ref_ts = (uint32_t)millis();
   }
 
   prev_btn_01 = btn_01;
