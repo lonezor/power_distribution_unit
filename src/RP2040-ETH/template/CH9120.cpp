@@ -293,7 +293,6 @@ void CH9120_init(
     }
 }
 
-
 /******************************************************************************
 function:	SendUdpPacket
 parameter:
@@ -302,4 +301,14 @@ Info:  String as UDP payload
 void SendUdpPacket(const char* str)
 {
    UART_ID1.write(str);
+}
+
+/******************************************************************************
+function:	RecvUdpPacket
+parameter:
+Info:  String as UDP payload
+******************************************************************************/
+void RecvUdpPacket(char* str)
+{
+
 }
