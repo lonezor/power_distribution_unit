@@ -32,8 +32,17 @@ void loop() {
   
   Serial.print(msg);
   SendUdpPacket(msg);
+
+  char rx_msg[256];
+  memset(rx_msg, 0, sizeof(rx_msg));
   
-  delay(250);
+  bool data_available = RecvUdpPacket(rx_msg, sizeof(rx_msg));
+  int chars = snprintf(msg, sizeof(msg), "RX: %s\n", rx_msg);
+  if (data_available) {
+    Serial.print(msg);
+  }
+  
+  delay(100);
 }
 
 

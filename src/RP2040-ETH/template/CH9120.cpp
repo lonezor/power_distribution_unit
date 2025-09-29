@@ -1,6 +1,6 @@
 #include "CH9120.h"
 
-UCHAR CH9120_Mode = UDP_CLIENT; // Optional: TCP_SERVER、TCP_CLIENT、UDP_SERVER、UDP_CLIENT
+UCHAR CH9120_Mode = UDP_SERVER; // TCP_SERVER / TCP_CLIENT / UDP_SERVER / UDP_CLIENT
 UDOUBLE CH9120_BAUD_RATE = 115200;                // BAUD RATE
 
 UCHAR tx[8] = {0x57, 0xAB};
@@ -298,9 +298,10 @@ function:	SendUdpPacket
 parameter:
 Info:  String as UDP payload
 ******************************************************************************/
-void SendUdpPacket(const char* str)
+bool SendUdpPacket(const char* str)
 {
    UART_ID1.write(str);
+   return true;
 }
 
 /******************************************************************************
@@ -308,7 +309,27 @@ function:	RecvUdpPacket
 parameter:
 Info:  String as UDP payload
 ******************************************************************************/
-void RecvUdpPacket(char* str)
+bool RecvUdpPacket(char* str, int str_len)
 {
+  if (!UART_ID1.available()) {
+      return false;
+  }
+    
+  static uint8_t buffer[1400];
+  memset(buffer, 0, sizeof(buffer));
+    
+  int rx_bytes = UART_ID1.readBytesUntil('\n', buffer, sizeof(buffer)-1);
 
+  // This API does not show the divide between physical packets. The
+  // protocol is sending new packets with updated states at regular
+  // intervals. Purge the pending bytes since this function
+  // only delivers a single packet at a time
+  while (UART_ID1.available()) {
+      UART_ID1.read();
+  }
+
+  snprintf(str, str_len, "%s", buffer);
+
+  return true;
 }
+

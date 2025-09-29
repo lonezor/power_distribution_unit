@@ -54,8 +54,8 @@ void CH9120_init(
   UWORD local_port,
   UWORD remote_port);
   
-void SendUdpPacket(const char *str);
-void RecvUdpPacket(char* str);
+bool SendUdpPacket(const char *str);
+bool RecvUdpPacket(char* str, int str_len);
 
 void DEV_Delay_ms(UDOUBLE xms);
 void DEV_Delay_us(UDOUBLE xus);
