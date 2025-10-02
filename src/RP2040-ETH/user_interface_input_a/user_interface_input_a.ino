@@ -1,6 +1,6 @@
 #include "CH9120.h"
 
-UCHAR CH9120_LOCAL_IP[4] = {192, 168, 249, 7};
+UCHAR CH9120_LOCAL_IP[4] = {192, 168, 249, 2};
 UCHAR CH9120_GATEWAY[4] = {192, 168, 249, 1};
 UCHAR CH9120_SUBNET_MASK[4] = {255, 255, 255, 0};
 UCHAR CH9120_REMOTE_IP[4] = {192, 168, 249, 101};
@@ -27,13 +27,22 @@ void setup1() {
 }
 
 void loop() {
-  char msg[128];
-  snprintf(msg, sizeof(msg), "Iteration %d, adc_value %d\n", iteration, adc_value);
+  char msg[256];
+  //snprintf(msg, sizeof(msg), "TX: Iteration %d, adc_value %d\n", iteration, adc_value);
+  //Serial.print(msg);
+
+  //SendUdpPacket(msg);
+
+  char rx_msg[256];
+  memset(rx_msg, 0, sizeof(rx_msg));
   
-  Serial.print(msg);
-  SendUdpPacket(msg);
+  bool data_available = RecvUdpPacket(rx_msg, sizeof(rx_msg));
+  int chars = snprintf(msg, sizeof(msg), "RX: %s\n", rx_msg);
+  if (data_available) {
+    Serial.print(msg);
+  }
   
-  delay(250);
+  //delay(200);
 }
 
 
