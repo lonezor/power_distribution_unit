@@ -137,9 +137,9 @@ void setup1() {
   led_display_02.begin(0x71);
   led_display_03.begin(0x72);
 
-  led_display_01.setBrightness(8);
-  led_display_02.setBrightness(8);
-  led_display_03.setBrightness(8);
+  led_display_01.setBrightness(4);
+  led_display_02.setBrightness(4);
+  led_display_03.setBrightness(4);
 }
 
 static int ascii_to_integer(char c) {
