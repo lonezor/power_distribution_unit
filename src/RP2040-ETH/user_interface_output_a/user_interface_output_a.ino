@@ -28,9 +28,12 @@
 #define PIN_LED_05 (22)
 #define PIN_LED_06 (26)
 
+Adafruit_7segment led_display_00 = Adafruit_7segment();
 Adafruit_7segment led_display_01 = Adafruit_7segment();
 Adafruit_7segment led_display_02 = Adafruit_7segment();
 Adafruit_7segment led_display_03 = Adafruit_7segment();
+Adafruit_7segment led_display_04 = Adafruit_7segment();
+Adafruit_7segment led_display_05 = Adafruit_7segment();
 
 UCHAR CH9120_LOCAL_IP[4] = {192, 168, 249, 4};
 UCHAR CH9120_GATEWAY[4] = {192, 168, 249, 1};
@@ -40,12 +43,19 @@ UWORD CH9120_LOCAL_PORT = 9;
 UWORD CH9120_REMOTE_PORT = 9;
 
 // Shared state
-volatile int display_0[5];
-volatile int display_1[5];
-volatile int display_2[5];
-volatile int display_3[5];
-volatile int display_4[5];
-volatile int display_5[5];
+volatile int display_data_0[5];
+volatile int display_data_1[5];
+volatile int display_data_2[5];
+volatile int display_data_3[5];
+volatile int display_data_4[5];
+volatile int display_data_5[5];
+
+int prev_display_data_0[5];
+int prev_display_data_1[5];
+int prev_display_data_2[5];
+int prev_display_data_3[5];
+int prev_display_data_4[5];
+int prev_display_data_5[5];
 
 // loop1 state
 static uint32_t display_ref_ts = 0;
@@ -54,21 +64,28 @@ void setup() {
 
   // 0xa means 7 segment display OFF (display zero when zero pad is active)
   for (int i = 0; i < 5; i++) {
-    if (i == 4) {
-      display_0[i] = 0xf;
-      display_1[i] = 0xf;
-      display_2[i] = 0xf;
-      display_3[i] = 0xf;
-      display_4[i] = 0xf;
-      display_5[i] = 0xf;
+    if (i == 0) {
+      display_data_0[i] = 0xf;
+      display_data_1[i] = 0xf;
+      display_data_2[i] = 0xf;
+      display_data_3[i] = 0xf;
+      display_data_4[i] = 0xf;
+      display_data_5[i] = 0xf;
     } else {
-      display_0[i] = 0xa;
-      display_1[i] = 0xa;
-      display_2[i] = 0xa;
-      display_3[i] = 0xa;
-      display_4[i] = 0xa;
-      display_5[i] = 0xa;
+      display_data_0[i] = 0xa;
+      display_data_1[i] = 0xa;
+      display_data_2[i] = 0xa;
+      display_data_3[i] = 0xa;
+      display_data_4[i] = 0xa;
+      display_data_5[i] = 0xa;
     }
+
+    prev_display_data_0[i] = 0x0;
+    prev_display_data_1[i] = 0x0;
+    prev_display_data_2[i] = 0x0;
+    prev_display_data_3[i] = 0x0;
+    prev_display_data_4[i] = 0x0;
+    prev_display_data_5[i] = 0x0;
   }
 
   Serial.begin(9600);
@@ -83,13 +100,25 @@ void setup1() {
   Wire.setSCL(1);
   Wire.begin();
 
-  led_display_01.begin(0x70);
-  led_display_02.begin(0x71);
-  led_display_03.begin(0x72);
+  led_display_00.begin(0x70);
+  led_display_01.begin(0x71);
+  led_display_02.begin(0x72);
 
+  led_display_00.setBrightness(4);
   led_display_01.setBrightness(4);
   led_display_02.setBrightness(4);
+
+  Wire1.setSDA(2);
+  Wire1.setSCL(3);
+  Wire1.begin();
+
+  led_display_03.begin(0x70, &Wire1);
+  led_display_04.begin(0x71, &Wire1);
+  led_display_05.begin(0x72, &Wire1);
+
   led_display_03.setBrightness(4);
+  led_display_04.setBrightness(4);
+  led_display_05.setBrightness(4);
 }
 
 static int ascii_to_integer(char c) {
@@ -158,27 +187,27 @@ static void parse_latest_stats(char *input_str) {
       switch (idx) {
       case 0:
         // D_0
-        update_stats(display_0, value);
+        update_stats(display_data_0, value);
         break;
       case 1:
         // D_1
-        update_stats(display_1, value);
+        update_stats(display_data_1, value);
         break;
       case 2:
         // D_2
-        update_stats(display_2, value);
+        update_stats(display_data_2, value);
         break;
       case 3:
         // D_3
-        update_stats(display_3, value);
+        update_stats(display_data_3, value);
         break;
       case 4:
         // D_4
-        update_stats(display_4, value);
+        update_stats(display_data_4, value);
         break;
       case 5:
         // D_5
-        update_stats(display_5, value);
+        update_stats(display_data_5, value);
         break;
       default:
         break;
@@ -211,10 +240,14 @@ uint16_t identify_delta(volatile int display_data[5],
                         int prev_display_data[5]) {
   uint16_t bitfield = 0;
 
-  for (int i = 0; i < 5; i++) {
-    if (display_data[i] != prev_display_data[i]) {
+  for (int i = 0; i < 4; i++) {
+    if (display_data[i+1] != prev_display_data[i+1]) {
       bitfield |= 1 << i;
     }
+  }
+
+  if (display_data[0] != prev_display_data[0]) {
+    bitfield = 0xf;
   }
 
   return bitfield;
@@ -227,8 +260,12 @@ static void volatile_copy(int dst[5], volatile int src[5]) {
   }
 }
 
-void loop1_update_display(volatile int display_data[5]) {
-  uint16_t update_bf = 0xffff;
+void loop1_update_display(Adafruit_7segment* seven_segment_display, volatile int display_data[5], int prev_display_data[5]) {
+  uint16_t update_bf = identify_delta(display_data, prev_display_data);
+
+  if (update_bf > 0) {
+    volatile_copy(prev_display_data, display_data);
+  }
 
   uint16_t d01_flags =
       DISPLAY_FLAG_00 | DISPLAY_FLAG_01 | DISPLAY_FLAG_02 | DISPLAY_FLAG_03;
@@ -240,60 +277,60 @@ void loop1_update_display(volatile int display_data[5]) {
   // structure, not any real information. Display turned off
   // or zero.
 
-  if (display_data[3] == 0xa && update_bf & DISPLAY_FLAG_03) {
-    led_display_01.writeDigitRaw(0, 0);
+  if (display_data[4] == 0xa && update_bf & DISPLAY_FLAG_03) {
+    seven_segment_display->writeDigitRaw(0, 0);
   }
 
-  if (display_data[2] == 0xa && update_bf & DISPLAY_FLAG_02) {
-    led_display_01.writeDigitRaw(1, 0);
+  if (display_data[3] == 0xa && update_bf & DISPLAY_FLAG_02) {
+    seven_segment_display->writeDigitRaw(1, 0);
   }
 
-  if (display_data[1] == 0xa && update_bf & DISPLAY_FLAG_01) {
-    led_display_01.writeDigitRaw(3, 0);
+  if (display_data[2] == 0xa && update_bf & DISPLAY_FLAG_01) {
+    seven_segment_display->writeDigitRaw(3, 0);
   }
 
-  if (display_data[0] == 0xa && update_bf & DISPLAY_FLAG_00) {
-    led_display_01.writeDigitRaw(4, 0);
+  if (display_data[1] == 0xa && update_bf & DISPLAY_FLAG_00) {
+    seven_segment_display->writeDigitRaw(4, 0);
   }
 
   if (update_bf & d01_flags) {
-    led_display_01.writeDisplay();
+    seven_segment_display->writeDisplay();
   }
 
   //////////////////////////////////////////////////////////////
   ///////////// VALUE 0-9 STATE AND DECIMAL POINT //////////////
   //////////////////////////////////////////////////////////////
 
-  if (display_data[3] != 0xa && update_bf & DISPLAY_FLAG_03) {
+  if (display_data[4] != 0xa && update_bf & DISPLAY_FLAG_03) {
     if (display_data[0] == 0xb) {
-      led_display_01.writeDigitNum(0, display_data[4], true);
+      seven_segment_display->writeDigitNum(0, display_data[4], true);
     } else {
-      led_display_01.writeDigitNum(0, display_data[4], true);
+      seven_segment_display->writeDigitNum(0, display_data[4], false);
     }
   }
 
-  if (display_data[2] != 0xa && update_bf & DISPLAY_FLAG_02) {
+  if (display_data[3] != 0xa && update_bf & DISPLAY_FLAG_02) {
     if (display_data[0] == 0xc) {
-      led_display_01.writeDigitNum(1, display_data[3], true);
+      seven_segment_display->writeDigitNum(1, display_data[3], true);
     } else {
-      led_display_01.writeDigitNum(1, display_data[3], true);
+      seven_segment_display->writeDigitNum(1, display_data[3], false);
     }
   }
 
-  if (display_data[1] != 0xa && update_bf & DISPLAY_FLAG_01) {
+  if (display_data[2] != 0xa && update_bf & DISPLAY_FLAG_01) {
     if (display_data[0] == 0xd) {
-      led_display_01.writeDigitNum(3, display_data[2], true);
+      seven_segment_display->writeDigitNum(3, display_data[2], true);
     } else {
-      led_display_01.writeDigitNum(3, display_data[2], true);
+      seven_segment_display->writeDigitNum(3, display_data[2], false);
     }
   }
 
-  if (display_data[0] != 0xa && update_bf & DISPLAY_FLAG_00) {
+  if (display_data[1] != 0xa && update_bf & DISPLAY_FLAG_00) {
     // Forth decimal not used
-    led_display_01.writeDigitNum(4, display_data[1], false);
+    seven_segment_display->writeDigitNum(4, display_data[1], false);
   }
   if (update_bf & d01_flags) {
-    led_display_01.writeDisplay();
+    seven_segment_display->writeDisplay();
   }
 }
 
@@ -302,7 +339,12 @@ void loop1() {
   uint32_t display_elapsed = (uint32_t)millis() - display_ref_ts;
 
   if (display_elapsed > 0) {
-    loop1_update_display(display_0);
+    loop1_update_display(&led_display_00, display_data_0, prev_display_data_0);
+    loop1_update_display(&led_display_01, display_data_1, prev_display_data_1);
+    loop1_update_display(&led_display_02, display_data_2, prev_display_data_2);
+    loop1_update_display(&led_display_03, display_data_3, prev_display_data_3);
+    loop1_update_display(&led_display_04, display_data_4, prev_display_data_4);
+    loop1_update_display(&led_display_05, display_data_5, prev_display_data_5);
 
     display_ref_ts = (uint32_t)millis();
   }

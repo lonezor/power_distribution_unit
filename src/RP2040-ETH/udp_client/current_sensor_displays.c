@@ -43,6 +43,8 @@ static int d3 = 0; // range: 0-9999
 static int d4 = 0; // range: 0-9999
 static int d5 = 0; // range: 0-9999
 
+static int zero_pad = 0;
+
 static char d0_suffix = 0xf; // range: 0xa - 0xf
 static char d1_suffix = 0xf; // range: 0xa - 0xf
 static char d2_suffix = 0xf; // range: 0xa - 0xf
@@ -56,7 +58,9 @@ static void format_and_replace(int64_t input, char *output, size_t size) {
 
   for (int i = 0; i < strlen(output); i++) {
     if (output[i] == '0') {
-      output[i] = 'a';
+      if (!zero_pad) {
+        output[i] = 'a';
+      }
     } else {
       // Stop once we encounter the first non-zero digit
       break;
@@ -81,10 +85,10 @@ void generate_next_state(char *buffer, int buffer_size) {
   d0 = (rand() % 10000) % 10000;
   d1 = (rand() % 1000) % 10000;
   d2 = (rand() % 100) % 10000;
-  d3 = (rand() % 50) % 10000;
-  d4 = (rand() % 25) % 10000;
-  d5 = (rand() % 5) % 10000;
-
+  d3 = (rand() % 75) % 10000;
+  d4 = (rand() % 50) % 10000;
+  d5 = (rand() % 25) % 10000;
+  
   char d0_str[32];
   char d1_str[32];
   char d2_str[32];
@@ -140,13 +144,14 @@ void generate_next_state(char *buffer, int buffer_size) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
-    printf("Usage: send_msg <iterations> <usec_delay>\n");
+  if (argc < 4) {
+    printf("Usage: send_msg <iterations> <usec_delay> <zero_pad>\n");
     return 0;
   }
 
   int iterations = atoi(argv[1]);
   int usec_delay = atoi(argv[2]);
+  zero_pad = atoi(argv[3]);
 
   int sockfd;
   struct sockaddr_in server_addr;
