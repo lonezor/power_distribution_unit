@@ -77,10 +77,8 @@ volatile int display_data_total_time_group_b[12];
 volatile int display_data_total_time_group_c[12];
 volatile int display_data_total_time_group_d[12];
 
-// State to avoid unecessary I2C communication
-// and display updates
-int prev_display_data[12];
-zero_pad_t prev_zero_pad = ZERO_PAD_ON;
+// loop0 state
+static uint32_t eth_ref_ts = 0;
 
 // loop1 state
 static int prev_btn_01 = 1;
@@ -89,6 +87,9 @@ static int prev_btn_02 = 1;
 static uint32_t btn_01_ref_ts = 0;
 static uint32_t btn_02_ref_ts = 0;
 static uint32_t display_ref_ts = 0;
+
+static int prev_display_data[12];
+static zero_pad_t prev_zero_pad = ZERO_PAD_ON;
 
 void setup() {
 
@@ -261,30 +262,34 @@ void loop() {
     parse_latest_stats(rx_msg);
   }
 
-#ifdef SERIAL_LOG_OUTPUT
-  char group[8];
-  memset(group, 0, sizeof(group));
-  if (btn_02_group == GROUP_A) {
-    group[0] = 'A';
-  } else if (btn_02_group == GROUP_B) {
-    group[0] = 'B';
-  } else if (btn_02_group == GROUP_C) {
-    group[0] = 'C';
-  } else if (btn_02_group == GROUP_D) {
-    group[0] = 'D';
-  }
+  uint32_t eth_elapsed = (uint32_t)millis() - eth_ref_ts;
+  if ( eth_elapsed >= 40) { // 25 Hz (Wireshark reports slightly lower packets/s)
+    static char group[8];
+    memset(group, 0, sizeof(group));
+    
+    if (btn_02_group == GROUP_A) {
+      group[0] = 'A';
+    } else if (btn_02_group == GROUP_B) {
+      group[0] = 'B';
+    } else if (btn_02_group == GROUP_C) {
+      group[0] = 'C';
+    } else if (btn_02_group == GROUP_D) {
+      group[0] = 'D';
+    }
 
-  char log_msg[1024];
-  snprintf(log_msg, sizeof(log_msg),
-           "display_mode=%s, selection_scope=%s, group=%s, zero_pad=%s",
+    static char udp_msg[1024];
+    snprintf(udp_msg, sizeof(udp_msg),
+           "display_mode=%s, selection_scope=%s, group=%s, zero_pad=%s\n",
            btn_04_display_mode == DISPLAY_MODE_RELAY_ACTIVATIONS
                ? "RELAY_ACTIVATIONS"
                : "TOTAL_ACTIVATION_TIME",
            btn_03_selection_scope == SELECTION_SCOPE_ALL ? "ALL" : "GROUP",
            group, btn_01_zero_pad == ZERO_PAD_OFF ? "OFF" : "ON");
+    
+    SendUdpPacket(udp_msg);
 
-  Serial.println(log_msg);
-#endif // SERIAL_LOG_OUTPUT
+    eth_ref_ts = (uint32_t)millis();
+  }
 }
 
 uint16_t identify_delta(volatile int display_data[12],
