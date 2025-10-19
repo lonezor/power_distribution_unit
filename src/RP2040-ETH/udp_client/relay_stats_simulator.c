@@ -27,6 +27,8 @@ static int64_t t_b = 0;
 static int64_t t_c = 0;
 static int64_t t_d = 0;
 
+static int led_status=0;
+
 static void format_and_replace(int64_t input, char *output, size_t size) {
   snprintf(output, size, "%012" PRId64, input);
 
@@ -79,21 +81,38 @@ void generate_next_state(char *buffer, int buffer_size) {
   format_and_replace(t_c, t_c_str, sizeof(t_c_str));
   format_and_replace(t_d, t_d_str, sizeof(t_d_str));
 
+  // If other LEDs are requested to be turned off,
+  // then the entire module needs to be disabled
+  if (led_status == 0) {
+    snprintf(a_all_str, sizeof(a_all_str), "aaaaaaaaaaaa");
+    snprintf(a_a_str, sizeof(a_a_str), "aaaaaaaaaaaa");
+    snprintf(a_b_str, sizeof(a_b_str), "aaaaaaaaaaaa");
+    snprintf(a_c_str, sizeof(a_c_str), "aaaaaaaaaaaa");
+    snprintf(a_d_str, sizeof(a_d_str), "aaaaaaaaaaaa");
+
+    snprintf(t_all_str, sizeof(t_all_str), "aaaaaaaaaaaa");
+    snprintf(t_a_str, sizeof(t_a_str), "aaaaaaaaaaaa");
+    snprintf(t_b_str, sizeof(t_b_str), "aaaaaaaaaaaa");
+    snprintf(t_c_str, sizeof(t_c_str), "aaaaaaaaaaaa");
+    snprintf(t_d_str, sizeof(t_d_str), "aaaaaaaaaaaa");
+  }
+
   snprintf(buffer, buffer_size,
            "A_ALL=%s;A_A=%s;A_B=%s;A_C=%s;A_D=%s;"
-           "T_ALL=%s;T_A=%s;T_B=%s;T_C=%s;T_D=%s\n",
+           "T_ALL=%s;T_A=%s;T_B=%s;T_C=%s;T_D=%s;OTHER_LEDS=%d\n",
            a_all_str, a_a_str, a_b_str, a_c_str, a_d_str, t_all_str, t_a_str,
-           t_b_str, t_c_str, t_d_str);
+           t_b_str, t_c_str, t_d_str, led_status);
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
-    printf("Usage: send_msg <iterations> <usec_delay>\n");
+  if (argc < 4) {
+    printf("Usage: send_msg <iterations> <usec_delay> <led_status>\n");
     return 0;
   }
 
   int iterations = atoi(argv[1]);
   int usec_delay = atoi(argv[2]);
+  led_status = atoi(argv[3]);
 
   int sockfd;
   struct sockaddr_in server_addr;

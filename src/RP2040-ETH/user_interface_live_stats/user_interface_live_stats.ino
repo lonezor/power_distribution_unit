@@ -42,6 +42,7 @@ UWORD CH9120_REMOTE_PORT = 9;
 typedef enum {
   ZERO_PAD_OFF,
   ZERO_PAD_ON,
+  ZERO_PAD_INIT,
 } zero_pad_t;
 
 typedef enum {
@@ -76,6 +77,7 @@ volatile int display_data_total_time_group_a[12];
 volatile int display_data_total_time_group_b[12];
 volatile int display_data_total_time_group_c[12];
 volatile int display_data_total_time_group_d[12];
+volatile int module_disabled = 0;
 
 // loop0 state
 static uint32_t eth_ref_ts = 0;
@@ -89,7 +91,7 @@ static uint32_t btn_02_ref_ts = 0;
 static uint32_t display_ref_ts = 0;
 
 static int prev_display_data[12];
-static zero_pad_t prev_zero_pad = ZERO_PAD_ON;
+static zero_pad_t prev_zero_pad = ZERO_PAD_INIT;
 
 void setup() {
 
@@ -180,6 +182,16 @@ static void update_stats(volatile int display_data[12], char *value_str) {
   }
 }
 
+static void check_led_status(char* value_str)
+{
+  // disabling LEDs is combined with no 'aaaa' display data. With zero feedback to user, disable whole module
+  if (value_str[0] == '0') {
+    module_disabled = 1;
+  } else {
+    module_disabled = 0;
+  }
+}
+
 static void parse_latest_stats(char *input_str) {
   // A_ALL=aaaaa5285059;A_A=aaaaa4706325;A_B=aaaaaa521216;A_C=aaaaaaa38409;A_D=aaaaaaa19109;T_ALL=aaaa48784808;T_A=aaaa44179768;T_B=aaaaa4100239;T_C=aaaaaa463603;T_D=aaaaaaa41198
 
@@ -235,6 +247,9 @@ static void parse_latest_stats(char *input_str) {
       case 9:
         // T_D
         update_stats(display_data_total_time_group_d, value);
+        break;
+      case 10:
+        check_led_status(value);
         break;
       default:
         break;
@@ -313,6 +328,30 @@ static void volatile_copy(int dst[12], volatile int src[12]) {
 }
 
 void loop1_update_display(volatile int display_data[12]) {
+  if (module_disabled) {
+    led_display_01.writeDigitRaw(0, 0);
+    led_display_01.writeDigitRaw(1, 0);
+    led_display_01.writeDigitRaw(3, 0);
+    led_display_01.writeDigitRaw(4, 0);
+    led_display_01.writeDisplay();
+    
+    led_display_02.writeDigitRaw(0, 0);
+    led_display_02.writeDigitRaw(1, 0);
+    led_display_02.writeDigitRaw(3, 0);
+    led_display_02.writeDigitRaw(4, 0);
+    led_display_02.writeDisplay();
+    
+    led_display_03.writeDigitRaw(0, 0);
+    led_display_03.writeDigitRaw(1, 0);
+    led_display_03.writeDigitRaw(3, 0);
+    led_display_03.writeDigitRaw(4, 0);
+    led_display_03.writeDisplay();
+
+    prev_zero_pad = ZERO_PAD_INIT;
+
+    return;
+  }
+  
   uint16_t update_bf = identify_delta(display_data, prev_display_data);
 
   if (update_bf > 0) {
@@ -445,6 +484,7 @@ void loop1_update_display(volatile int display_data[12]) {
   if (update_bf & d03_flags) {
     led_display_03.writeDisplay();
   }
+  
 
   //////////////////////////////////////////////////////////////
   /////////////////// VALUE 0-9 STATE //////////////////////////
@@ -509,7 +549,60 @@ void loop1_update_display(volatile int display_data[12]) {
   }
 }
 
+static void update_seven_segment_displays()
+{
+  uint32_t display_elapsed = (uint32_t)millis() - display_ref_ts;
+
+  if (display_elapsed > 0) {
+    if (btn_04_display_mode == DISPLAY_MODE_RELAY_ACTIVATIONS) {
+      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
+        loop1_update_display(display_data_activations_all);
+      } else if (btn_02_group == GROUP_A) {
+        loop1_update_display(display_data_activations_group_a);
+      } else if (btn_02_group == GROUP_B) {
+        loop1_update_display(display_data_activations_group_b);
+      } else if (btn_02_group == GROUP_C) {
+        loop1_update_display(display_data_activations_group_c);
+      } else if (btn_02_group == GROUP_D) {
+        loop1_update_display(display_data_activations_group_d);
+      }
+    } else if (btn_04_display_mode ==
+               DISPLAY_MODE_RELAY_TOTAL_ACTIVATION_TIME) {
+      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
+        loop1_update_display(display_data_total_time_all);
+      } else if (btn_02_group == GROUP_A) {
+        loop1_update_display(display_data_total_time_group_a);
+      } else if (btn_02_group == GROUP_B) {
+        loop1_update_display(display_data_total_time_group_b);
+      } else if (btn_02_group == GROUP_C) {
+        loop1_update_display(display_data_total_time_group_c);
+      } else if (btn_02_group == GROUP_D) {
+        loop1_update_display(display_data_total_time_group_d);
+      }
+    }
+    display_ref_ts = (uint32_t)millis();
+  }
+}
+
 void loop1() {
+
+  // Do not allow any state transition when all displays are disabled
+  // Pushing buttons while giving no feedback should be ignored until
+  // user activates screens again. This mainly affects momentary buttons
+  // but treat it as two modes for consistency.
+  if (module_disabled) {
+    digitalWrite(PIN_LED_01, LOW);
+    digitalWrite(PIN_LED_02, LOW);
+    digitalWrite(PIN_LED_03, LOW);
+    digitalWrite(PIN_LED_04, LOW);
+    digitalWrite(PIN_LED_05, LOW);
+    digitalWrite(PIN_LED_06, LOW);
+
+    update_seven_segment_displays();
+    
+    return;
+  }
+  
   int btn_01 = digitalRead(PIN_BTN_01);
   int btn_02 = digitalRead(PIN_BTN_02);
   int btn_03 = digitalRead(PIN_BTN_03);
@@ -597,37 +690,7 @@ void loop1() {
     digitalWrite(PIN_LED_06, LOW);
   }
 
-  uint32_t display_elapsed = (uint32_t)millis() - display_ref_ts;
-
-  if (display_elapsed > 0) {
-    if (btn_04_display_mode == DISPLAY_MODE_RELAY_ACTIVATIONS) {
-      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
-        loop1_update_display(display_data_activations_all);
-      } else if (btn_02_group == GROUP_A) {
-        loop1_update_display(display_data_activations_group_a);
-      } else if (btn_02_group == GROUP_B) {
-        loop1_update_display(display_data_activations_group_b);
-      } else if (btn_02_group == GROUP_C) {
-        loop1_update_display(display_data_activations_group_c);
-      } else if (btn_02_group == GROUP_D) {
-        loop1_update_display(display_data_activations_group_d);
-      }
-    } else if (btn_04_display_mode ==
-               DISPLAY_MODE_RELAY_TOTAL_ACTIVATION_TIME) {
-      if (btn_03_selection_scope == SELECTION_SCOPE_ALL) {
-        loop1_update_display(display_data_total_time_all);
-      } else if (btn_02_group == GROUP_A) {
-        loop1_update_display(display_data_total_time_group_a);
-      } else if (btn_02_group == GROUP_B) {
-        loop1_update_display(display_data_total_time_group_b);
-      } else if (btn_02_group == GROUP_C) {
-        loop1_update_display(display_data_total_time_group_c);
-      } else if (btn_02_group == GROUP_D) {
-        loop1_update_display(display_data_total_time_group_d);
-      }
-    }
-    display_ref_ts = (uint32_t)millis();
-  }
+  update_seven_segment_displays();
 
   prev_btn_01 = btn_01;
   prev_btn_02 = btn_02;
